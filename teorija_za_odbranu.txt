@@ -1,0 +1,2007 @@
+================================================================================
+                    TEORIJSKI KONCEPTI ZA ODBRANU PROJEKTA
+                         Air Quality Dataset - ONP 2025
+================================================================================
+
+================================================================================
+FAZA 1 - UČITAVANJE I OPIS DATASET-A
+================================================================================
+
+DATASET: Air Quality (Italija, 2004-2005)
+------------------------------------------
+- Broj instanci: 9357
+- Broj kolona: 17
+- Period: Mart 2004 - Februar 2005 (1 godina)
+- Lokacija: Zagađeno područje u italijanskom gradu
+- Senzori: 5 metal-oksidnih hemijskih senzora
+
+OZNAKE NEDOSTAJUĆIH VREDNOSTI:
+- Vrednost -200 označava nedostajuće vrednosti (missing values)
+
+VAŽNI POJMOVI IZ DATASET-A:
+------------------------------------------
+1. CROSS-SENSITIVITY (Unakrsna osetljivost)
+   - Senzor reaguje ne samo na ciljni gas već i na druge gasove
+   - Primer: Sensor za CO može reagovati i na NO2
+   - Utiče na preciznost merenja
+
+2. CONCEPT DRIFT
+   - Promena statističkih svojstava ciljne promenljive tokom vremena
+   - Odnosi između podataka se menjaju
+   - Model mora biti prilagodljiv na ove promene
+
+3. SENSOR DRIFT
+   - Postepena promena karakteristika senzora tokom vremena
+   - Kalibracija se "pomera"
+   - Utiče na tačnost merenja
+
+OSNOVNE PANDAS FUNKCIJE:
+------------------------------------------
+1. df.head(n)
+   - Prikazuje prvih n redova dataset-a
+   - Koristi se za brzi pregled podataka
+
+2. df.shape
+   - Vraća dimenzije: (broj_redova, broj_kolona)
+   - Primer: (9357, 17)
+
+3. df.describe()
+   - Statistički pregled numeričkih kolona
+   - Prikazuje: count, mean, std, min, 25%, 50%, 75%, max
+
+4. df.info()
+   - Informacije o tipovima podataka
+   - Broj non-null vrednosti po kolonama
+   - Memorijska potrošnja
+
+
+================================================================================
+FAZA 2 - VIZUALIZACIJA PODATAKA
+================================================================================
+
+1. HISTOGRAM (Distribucija podataka)
+------------------------------------------
+Funkcija: sns.histplot(data, kde=True)
+
+ŠTA PRIKAZUJE:
+- Frekvenciju pojavljivanja vrednosti
+- Oblik distribucije podataka
+
+KDE (Kernel Density Estimate):
+- Glatka kriva koja aproksimira distribuciju
+- Pokazuje "oblik" podataka
+
+NORMALNA DISTRIBUCIJA:
+- Bell-shaped (zvonasta) kriva
+- Simetrična oko srednje vrednosti
+- 68% podataka je unutar 1 std od mean
+- 95% podataka je unutar 2 std od mean
+- 99.7% podataka je unutar 3 std od mean
+
+
+2. BOX PLOT (Kutijasti dijagram)
+------------------------------------------
+Funkcija: sns.boxplot(x=data)
+
+KOMPONENTE:
+- Kutija: Interkvartilni opseg (IQR) - Q1 do Q3
+- Linija u kutiji: Medijana (Q2)
+- Whiskers (brkovi): Q1 - 1.5×IQR i Q3 + 1.5×IQR
+- Tačke izvan: OUTLIERS (ekstremne vrednosti)
+
+OUTLIERS (Odstupajuće vrednosti):
+- Vrednosti koje značajno odstupaju od ostalih
+- Mogu biti:
+  * Greške u merenju
+  * Stvarne ekstremne vrednosti
+  * Anomalije u podacima
+
+
+3. TIME SERIES PLOT (Vremenska serija)
+------------------------------------------
+ŠTA PRIKAZUJE:
+- Promenu vrednosti kroz vreme
+- Trendove (rast/pad)
+- Sezonalnost
+- Ciklične obrase
+
+SCATTER PLOT:
+- Detaljniji prikaz odstupanja
+- Svaka tačka = jedna vrednost
+- Omogućava lakšu identifikaciju outliera
+
+
+4. MATRICA KORELACIJE (Correlation Matrix)
+------------------------------------------
+Funkcija: df.corr() + sns.heatmap()
+
+KORELACIJA:
+- Meri linearnu zavisnost između dve promenljive
+- Vrednosti: -1 do +1
+
+POZITIVNA KORELACIJA (0 do +1):
+- Kada jedna raste → druga raste
+- Kada jedna opada → druga opada
+Klasifikacija:
+  * Jaka: r > 0.5
+  * Umerena: 0.3 ≤ r ≤ 0.49
+  * Slaba: 0.1 ≤ r ≤ 0.29
+  * Zanemarljiva: r < 0.1
+
+NEGATIVNA KORELACIJA (-1 do 0):
+- Kada jedna raste → druga opada
+- Kada jedna opada → druga raste
+Klasifikacija:
+  * Jaka: r < -0.5
+  * Umerena: -0.49 ≤ r ≤ -0.3
+  * Slaba: -0.29 ≤ r ≤ -0.1
+  * Zanemarljiva: r > -0.1
+
+r = 0: NEMA korelacije (nezavisne promenljive)
+r = +1: Savršena pozitivna korelacija
+r = -1: Savršena negativna korelacija
+
+VAŽNO:
+- Korelacija ≠ Kauzalnost
+- Dve promenljive mogu biti korelirane bez uzročno-posledične veze
+
+
+================================================================================
+FAZA 3 - PRIPREMA PODATAKA I EDA (Exploratory Data Analysis)
+================================================================================
+
+1. ČIŠĆENJE PODATAKA
+------------------------------------------
+KORACI:
+a) Brisanje nepotrebnih kolona
+   - Unnamed: 15, Unnamed: 16 (sve NaN vrednosti)
+
+b) Konverzija tipova podataka
+   - Zamena ',' sa '.' za decimalne brojeve
+   - astype(float) - konverzija u float64
+
+c) Spajanje Date i Time u DateTime
+   - pd.to_datetime() - kreira timestamp
+   - format="%d/%m/%Y %H.%M.%S"
+
+d) Zamena -200 sa NaN
+   - df.replace(-200, np.nan)
+   - Omogućava lakšu manipulaciju nedostajućim vrednostima
+
+e) Brisanje kolona sa > 90% NaN
+   - NMHC(GT) imala 90.3% nedostajućih vrednosti
+   - Imputation bi bio neadekvatan
+
+
+2. IQR METOD ZA UKLANJANJE OUTLIERA
+------------------------------------------
+IQR (Interquartile Range) = Q3 - Q1
+
+FORMULA:
+Q1 = 25. percentil (25% podataka je manje od ove vrednosti)
+Q3 = 75. percentil (75% podataka je manje od ove vrednosti)
+IQR = Q3 - Q1
+
+GRANICE:
+Lower_bound = Q1 - 1.5 × IQR
+Upper_bound = Q3 + 1.5 × IQR
+
+OUTLIERS:
+- Sve vrednosti < Lower_bound
+- Sve vrednosti > Upper_bound
+
+ZAŠTO 1.5?
+- Empirijski koeficijent
+- John Tukey (statistički standard)
+- Balans između zadržavanja podataka i uklanjanja outliera
+
+SPECIJALAN SLUČAJ:
+- Ako je IQR = 0 (svi podaci isti), postavljamo:
+  * Lower = -∞
+  * Upper = +∞
+- Sprečava brisanje svih podataka
+
+
+3. IMPUTATION (Popunjavanje nedostajućih vrednosti)
+------------------------------------------
+
+A) SIMPLE IMPUTER
+Funkcija: SimpleImputer(strategy='mean')
+
+STRATEGIJE:
+- 'mean': Popunjava prosečnom vrednošću
+- 'median': Popunjava medijanom
+- 'most_frequent': Popunjava najčešćom vrednošću
+- 'constant': Popunjava konstantnom vrednošću
+
+KADA KORISTITI:
+- Za kolone sa malim % nedostajućih vrednosti (~5%)
+- Kada podaci imaju normalnu distribuciju
+- Brzo i jednostavno
+
+FORMULA (mean strategy):
+missing_value = (Σ svih postojećih vrednosti) / (broj postojećih vrednosti)
+
+U PROJEKTU:
+- Korišćeno za: PT08.S1(CO), PT08.S2(NMHC), PT08.S3(NOx),
+                PT08.S4(NO2), PT08.S5(O3), C6H6(GT)
+- Procenat NaN: ~5.07%
+
+
+B) KNN IMPUTER
+Funkcija: KNNImputer(n_neighbors=8)
+
+ALGORITAM:
+1. Za svaki podatak sa nedostajućom vrednošću
+2. Nađi K najbližih suseda (u ovom slučaju 8)
+3. Izračunaj prosečnu vrednost od tih K suseda
+4. Popuni nedostajuću vrednost tom prosečnom vrednošću
+
+KAKO SE RAČUNA "BLIZINA"?
+- Euklidsko rastojanje između tačaka
+- d = √[(x₁-x₂)² + (y₁-y₂)² + ... + (zₙ-zₘ)²]
+
+PREDNOSTI:
+- Preciznije od Simple Imputer
+- Uzima u obzir sličnost podataka
+- Bolje za veći % nedostajućih vrednosti
+
+n_neighbors = 8:
+- Koristi 8 najbližih tačaka
+- Veći broj → stabilnija procena
+- Manji broj → osetljivije na outliere
+
+U PROJEKTU:
+- Korišćeno za: CO(GT), NOx(GT), NO2(GT), T, RH, AH
+- Procenat NaN: ~18-19%
+
+ZAŠTO KNN ZA VEĆE %?
+- Jednostavna sredina bi bila neprecizna
+- KNN koristi više kontekstualnih informacija
+- Bolje očuvanje strukture podataka
+
+
+4. SCALING (Skaliranje podataka)
+------------------------------------------
+
+ZAŠTO SKALIRANJE?
+- Različite kolone imaju različite opsege
+  Primer: CO(GT) → 0-10
+          PT08.S1(CO) → 500-2000
+- Algoritmi mašinskog učenja su osetljivi na veličinu vrednosti
+- Veće vrednosti dobijaju veću "težinu" bez skaliranja
+
+A) STANDARD SCALER (Z-score normalization)
+Funkcija: StandardScaler()
+
+FORMULA:
+z = (x - μ) / σ
+
+Gde:
+- x = originalna vrednost
+- μ = srednja vrednost (mean)
+- σ = standardna devijacija (std)
+- z = standardizovana vrednost
+
+REZULTAT:
+- Mean = 0
+- Standardna devijacija = 1
+- Podaci su centrirani oko nule
+- Čuva oblik distribucije
+
+KADA KORISTITI:
+- Kada podaci imaju normalnu distribuciju
+- Kada postoje outlieri (nije osetljiv kao MinMax)
+- Za algoritme: Linearna regresija, SVM, Neural Networks
+
+U PROJEKTU:
+- Korišćen StandardScaler jer distribucije su približno normalne
+
+
+B) MIN-MAX SCALER (Alternativa - nije korišćena)
+Formula:
+x_scaled = (x - min) / (max - min)
+
+REZULTAT:
+- Sve vrednosti su u opsegu [0, 1]
+
+KADA KORISTITI:
+- Kada nema outliera
+- Kada treba fiksni opseg [0, 1]
+- Za algoritme: Neural Networks (sa sigmoid), K-Means
+
+
+================================================================================
+FAZA 4 - STATISTIČKA ANALIZA I TESTIRANJE HIPOTEZA
+================================================================================
+
+1. HIPOTEZE
+------------------------------------------
+HIPOTEZA:
+- Tvrdnja o populaciji koju testiramo
+
+H0 (Null Hypothesis - Nulta hipoteza):
+- Osnovna pretpostavka
+- Pretpostavljamo da nema efekta/razlike
+- Pokušavamo je OPOVRGNUTI
+
+H1 ili Ha (Alternative Hypothesis - Alternativna hipoteza):
+- Ono što pokušavamo dokazati
+- Tvrdi da POSTOJI efekat/razlika
+
+P-VALUE:
+- Verovatnoća da dobijemo rezultate bar toliko ekstremne kao naši
+  pod pretpostavkom da je H0 tačna
+- Što je manji p-value → jači dokaz PROTIV H0
+
+NIVO ZNAČAJNOSTI (α):
+- Najčešće: α = 0.05 (5%)
+- Prag za donošenje odluke
+
+PRAVILO ODLUČIVANJA:
+- p-value ≤ α (0.05) → Odbacujemo H0 (prihvatamo H1)
+- p-value > α (0.05) → Ne odbacujemo H0
+
+
+2. SHAPIRO-WILK TEST (Test normalnosti)
+------------------------------------------
+Funkcija: shapiro(data)
+
+SVRHA:
+- Testira da li podaci prate normalnu distribuciju
+
+HIPOTEZE:
+H0: Podaci imaju normalnu distribuciju
+H1: Podaci NEMAJU normalnu distribuciju
+
+INTERPRETACIJA:
+- p > 0.05 → Ne odbacujemo H0 → Verovatno normalna distribucija
+- p ≤ 0.05 → Odbacujemo H0 → Verovatno NIJE normalna distribucija
+
+KADA KORISTITI:
+- Pre parametarskih testova (koji zahtevaju normalnost)
+- Veličina uzorka: najbolje za n < 5000
+
+NAPOMENA:
+- Za velike uzorke, test je vrlo osetljiv
+- Mala odstupanja od normalnosti mogu dati p < 0.05
+
+
+3. MANN-WHITNEY U TEST (Neparametarski test)
+------------------------------------------
+Funkcija: mannwhitneyu(group1, group2, alternative='two-sided')
+
+SVRHA:
+- Testira da li su distribucije dve grupe različite
+- Alternativa T-testu kada podaci NISU normalno distribuirani
+
+HIPOTEZE:
+H0: Distribucije su iste / Nema razlike u medijanama
+H1: Distribucije se razlikuju / Ima razlika u medijanama
+
+ALTERNATIVE parametar:
+- 'two-sided': Testira da li su različite (u bilo kom smeru)
+- 'less': Testira da li je prva grupa manja
+- 'greater': Testira da li je prva grupa veća
+
+INTERPRETACIJA:
+- p < 0.05 → Odbacujemo H0 → Postoji značajna razlika
+- p ≥ 0.05 → Ne odbacujemo H0 → Nema značajne razlike
+
+PREDNOSTI:
+- Ne zahteva normalnu distribuciju
+- Robustan na outliere
+- Funkcionira sa ordinalnim podacima
+
+
+4. COHEN'S d (Veličina efekta)
+------------------------------------------
+SVRHA:
+- Meri VELIČINU razlike između dve grupe
+- Dopunjuje p-value (koji samo kaže DA LI postoji razlika)
+
+FORMULA:
+d = (mean₁ - mean₂) / pooled_std
+
+Gde je pooled_std:
+σ_pooled = √[((n₁-1)×σ₁² + (n₂-1)×σ₂²) / (n₁+n₂-2)]
+
+INTERPRETACIJA (Cohen's konvencija):
+|d| < 0.2  → Mali efekat
+0.2 ≤ |d| < 0.5 → Srednji efekat
+|d| ≥ 0.5  → Veliki efekat
+
+PRIMER:
+d = 0.8 → Razlika između grupa je 0.8 standardnih devijacija
+
+ZAŠTO JE VAŽNO?
+- p-value može biti značajan, ali EFEKAT mali (velika veličina uzorka)
+- Cohen's d pokazuje PRAKTIČNU značajnost
+
+
+5. INTERVAL POVERENJA (Confidence Interval)
+------------------------------------------
+SVRHA:
+- Opseg vrednosti u kojem očekujemo da se nalazi prava srednja vrednost
+
+FORMULA (95% interval):
+CI = mean ± z × (σ / √n)
+
+Gde:
+- mean = srednja vrednost uzorka
+- z = z-score (za 95% CI: z = 1.96)
+- σ = standardna devijacija
+- n = veličina uzorka
+- σ/√n = standardna greška (Standard Error)
+
+NIVOI POVERENJA:
+- 90% CI → z = 1.645
+- 95% CI → z = 1.96
+- 99% CI → z = 2.576
+
+INTERPRETACIJA:
+"Sa 95% sigurnošću, prava srednja vrednost populacije je između
+[donja_granica] i [gornja_granica]"
+
+NAPOMENA U PROJEKTU:
+- Pošto su podaci skalirani (mean = 0), intervali su oko nule
+- Za originalne vrednosti bi trebalo koristiti neskalirane podatke
+
+
+================================================================================
+FAZA 5 - PREDIKTIVNO MODELIRANJE I MAŠINSKO UČENJE
+================================================================================
+
+1. TRAIN-TEST SPLIT
+------------------------------------------
+Funkcija: train_test_split(X, y, test_size=0.2, random_state=42)
+
+PARAMETRI:
+- X: Feature-i (ulazne promenljive)
+- y: Target (ciljna promenljiva)
+- test_size=0.2: 20% podataka za testiranje
+- random_state=42: Seed za reproduktivnost
+
+PODELA:
+- Train set (80%): Za treniranje modela
+- Test set (20%): Za evaluaciju modela
+
+ZAŠTO DELIMO?
+- Sprečavanje overfitting-a
+- Procena generalizacije na NOVE podatke
+- Model ne sme "videti" test podatke tokom treniranja
+
+STRATIFIED SPLIT:
+- Čuva raspodelu ciljne promenljive u oba seta
+- Važno kod klasifikacije sa neubalansiranim klasama
+
+
+2. METRIKE REGRESIJE
+------------------------------------------
+
+A) R² (R-squared / Coefficient of Determination)
+------------------------------------------------
+FORMULA:
+R² = 1 - (SS_res / SS_tot)
+
+Gde:
+- SS_res = Σ(y_true - y_pred)²  (Residual Sum of Squares)
+- SS_tot = Σ(y_true - y_mean)²  (Total Sum of Squares)
+
+INTERPRETACIJA:
+- Opseg: -∞ do 1 (teoretski)
+- Praktično: 0 do 1
+- R² = 1: Savršena predikcija (100% varijanse objašnjeno)
+- R² = 0: Model ne objašnjava ništa (kao predikcija mean-a)
+- R² < 0: Model je gori od predviđanja proseka
+
+ZNAČENJE:
+R² = 0.93 → Model objašnjava 93% varijacije u podacima
+
+PREDNOSTI:
+- Lako razumljiva metrika
+- Nezavisna od jedinica
+
+MANE:
+- Može biti visoka čak i kod lošeg modela (kompleksni modeli)
+- Ne pokazuje MAE/MSE grešku
+
+
+B) MAE (Mean Absolute Error)
+------------------------------------------------
+FORMULA:
+MAE = (Σ|y_true - y_pred|) / n
+
+KARAKTERISTIKE:
+- Prosečna apsolutna greška
+- Iste jedinice kao ciljna promenljiva
+- Linearna kazna za greške
+
+INTERPRETACIJA:
+MAE = 0.19 → Model u proseku greši za 0.19 jedinica
+
+PREDNOSTI:
+- Lako razumljiva
+- Nije osetljiva na outliere (kao MSE)
+- Linearna metrika
+
+MANE:
+- Ne kažnjava velike greške jače od malih
+
+
+C) MSE (Mean Squared Error)
+------------------------------------------------
+FORMULA:
+MSE = (Σ(y_true - y_pred)²) / n
+
+KARAKTERISTIKE:
+- Prosečna kvadratna greška
+- Kvadrirane jedinice
+- Eksponencijalno kažnjava veće greške
+
+PREDNOSTI:
+- Jače kažnjava velike greške
+- Matematički zgodna za derivacije (optimizacija)
+
+MANE:
+- Teško interpretirati (kvadrirane jedinice)
+- Vrlo osetljiva na outliere
+
+
+D) RMSE (Root Mean Squared Error)
+------------------------------------------------
+FORMULA:
+RMSE = √MSE = √[(Σ(y_true - y_pred)²) / n]
+
+KARAKTERISTIKE:
+- Koren iz MSE
+- Iste jedinice kao ciljna promenljiva
+- Kažnjava veće greške jače od MAE
+
+INTERPRETACIJA:
+RMSE = 0.26 → Tipična greška modela je ~0.26 jedinica
+
+PREDNOSTI:
+- Kažnjava veće greške
+- Iste jedinice kao target
+- Najpopularnija metrika
+
+MAE vs RMSE:
+- RMSE ≥ MAE (uvek)
+- Ako je RMSE >> MAE → Ima mnogo velikih grešaka
+- Ako je RMSE ≈ MAE → Greške su uniformne
+
+
+3. MODELI MAŠINSKOG UČENJA
+------------------------------------------
+
+A) LINEARNA REGRESIJA
+------------------------------------------------
+Funkcija: LinearRegression()
+
+FORMULA:
+y = β₀ + β₁x₁ + β₂x₂ + ... + βₙxₙ
+
+Gde:
+- y: Ciljna promenljiva
+- β₀: Intercept (presek sa y-osom)
+- β₁, β₂, ..., βₙ: Koeficijenti (težine)
+- x₁, x₂, ..., xₙ: Feature-i
+
+CILJ:
+- Minimizacija MSE: min Σ(y_true - y_pred)²
+- Metod najmanjih kvadrata (Ordinary Least Squares - OLS)
+
+PREDNOSTI:
+- Brza
+- Lako interpretirati
+- Dobra baseline
+
+MANE:
+- Pretpostavlja linearnu vezu
+- Osetljiva na multikolinearnost
+- Nema regularizacije → može overfit
+
+U PROJEKTU:
+R² = 0.9333, MAE = 0.1932
+
+
+B) RIDGE REGRESIJA (L2 Regularizacija)
+------------------------------------------------
+Funkcija: RidgeCV(alphas=[...], cv=5)
+
+FORMULA:
+Loss = MSE + α × Σβᵢ²
+     = Σ(y - ŷ)² + α × Σβᵢ²
+
+α (alpha): Regularizacioni parametar
+- α = 0 → Obična linearna regresija
+- α → ∞ → Svi koeficijenti β → 0
+
+L2 REGULARIZACIJA:
+- Dodaje kaznu za KVADRATE koeficijenata
+- "Shrinkage" → Smanjuje koeficijente prema nuli
+- NE ELIMINIŠE koeficijente potpuno (β ≠ 0)
+
+EFEKAT:
+- Smanjuje kompleksnost modela
+- Sprečava overfitting
+- Distribuira uticaj među koreliranim feature-ima
+
+CROSS-VALIDATION (RidgeCV):
+- cv=5: 5-fold cross-validation
+- Automatski bira najbolji α iz liste
+
+U PROJEKTU:
+- alphas=[0.001, 0.01, 0.1, 1, 10, 100, 1000]
+- Najbolji α = 1.0 → Skoro identično linearnoj regresiji
+- R² = 0.9333
+
+
+C) LASSO REGRESIJA (L1 Regularizacija)
+------------------------------------------------
+Funkcija: LassoCV(alphas=[...], cv=5)
+
+FORMULA:
+Loss = MSE + α × Σ|βᵢ|
+     = Σ(y - ŷ)² + α × Σ|βᵢ|
+
+L1 REGULARIZACIJA:
+- Dodaje kaznu za APSOLUTNE vrednosti koeficijenata
+- "Sparsity" → Postavlja neke koeficijente tačno na 0
+- Automatska SELEKCIJA feature-a
+
+RAZLIKA L1 vs L2:
+┌─────────────┬────────────────┬─────────────────┐
+│             │ L1 (Lasso)     │ L2 (Ridge)      │
+├─────────────┼────────────────┼─────────────────┤
+│ Kazna       │ Σ|βᵢ|          │ Σβᵢ²            │
+│ Koeficijenti│ Mogu biti 0    │ Teže ka 0       │
+│ Feature sel.│ DA (sparse)    │ NE              │
+│ Korelacija  │ Bira 1 od njih │ Prosečno deli   │
+└─────────────┴────────────────┴─────────────────┘
+
+KADA KORISTITI:
+- Lasso: Kada očekujemo da samo NEKI feature-i utiču
+- Ridge: Kada svi feature-i donekle utiču
+
+U PROJEKTU:
+- Najbolji α = 0.001 → Minimalna regularizacija
+- R² = 0.9333
+- Gotovo identično linearnoj regresiji
+
+
+════════════════════════════════════════════════════════════════════════
+              DETALJAN PRIKAZ L1 vs L2 REGULARIZACIJE
+════════════════════════════════════════════════════════════════════════
+
+ZAŠTO REGULARIZACIJA?
+------------------------------------------
+PROBLEM: OVERFITTING
+- Model "pamti" trening podatke umesto da "uči" obrasce
+- Odličan na train setu, loš na test setu
+- Preveliki koeficijenti β
+
+REŠENJE:
+- Dodaj kaznu za velike koeficijente
+- Natera model da bude jednostavniji
+
+
+L2 REGULARIZACIJA (Ridge)
+------------------------------------------
+Loss = MSE + α × ||β||₂² = MSE + α × (β₁² + β₂² + ... + βₙ²)
+
+GEOMETRIJSKA INTERPRETACIJA:
+- Ograničava koeficijente u krug (2D) ili sferu (nD)
+- Koeficijenti se "skupljaju" prema nuli
+- β = β_ols × (1 / (1 + α))
+
+KARAKTERISTIKE:
+✓ Stabilna (uvek ima rešenje)
+✓ Dobro radi sa koreliranim feature-ima
+✓ "Prosečno" distribuira težinu među koreliranim feature-ima
+✗ Ne eliminiše feature-e
+✗ Teže interpretirati (svi feature-i ostaju)
+
+PRIMER:
+Feature: [SezonaLeto, SezonaProleće, SezonaJesen, SezonaZima]
+Ridge: β = [0.2, 0.3, 0.25, 0.25] (svi ostaju)
+
+
+L1 REGULARIZACIJA (Lasso)
+------------------------------------------
+Loss = MSE + α × ||β||₁ = MSE + α × (|β₁| + |β₂| + ... + |βₙ|)
+
+GEOMETRIJSKA INTERPRETACIJA:
+- Ograničava koeficijente u romb (2D) ili simplex (nD)
+- "Ćoskovi" romba su na osama → β_i = 0
+- Proizvodi SPARSE rešenja
+
+KARAKTERISTIKE:
+✓ Feature selection (automatski eliminiše nevažne)
+✓ Lakše interpretirati (manji model)
+✓ Bolji za visokodimenzionalne probleme
+✗ Nestabilan sa koreliranim feature-ima (bira nasumično 1)
+✗ Može biti numerički nestabilan
+
+PRIMER:
+Feature: [SezonaLeto, SezonaProleće, SezonaJesen, SezonaZima]
+Lasso: β = [0.8, 0, 0, 0.2] (bira samo neke)
+
+
+ELASTIC NET (Kombinacija L1 + L2)
+------------------------------------------
+Loss = MSE + α₁×||β||₁ + α₂×||β||₂²
+
+KARAKTERISTIKE:
+- Balans između Lasso i Ridge
+- Feature selection + Stabilnost
+- Koristi se kada ima mnogo koreliranih feature-a
+
+
+VIZUELNI PRIKAZ (2D slučaj):
+------------------------------------------
+           L2 (Ridge)           L1 (Lasso)
+
+    β₂                      β₂
+     |    ___               |    /\
+     |   /   \              |   /  \
+  ---|--●-----●---|      ---|--●----●---|
+     | /  ●    \  |         | /  ●  \   |
+     |/   opt   \ |         |/   opt  \ |
+     ●-----------●         ●-----------●
+                β₁                    β₁
+
+    Krug → β ≠ 0           Romb → β₁=0 ili β₂=0
+
+opt = Optimum bez regularizacije
+●   = Ograničenje
+    = Konture MSE
+
+
+KO POBEDI U PROJEKTU?
+------------------------------------------
+| Model          | α      | R²     | Komentar              |
+|----------------|--------|--------|-----------------------|
+| Linear Reg     | -      | 0.9333 | Baseline              |
+| Ridge          | 1.0    | 0.9333 | α=1 ≈ Linear          |
+| Lasso          | 0.001  | 0.9333 | α→0 ≈ Linear          |
+
+ZAKLJUČAK:
+- Podaci ne zahtevaju jaku regularizaciju
+- Svi feature-i su važni
+- Model je već dobro generalizovan
+
+
+D) SVR - SUPPORT VECTOR REGRESSION
+------------------------------------------------
+Funkcija: SVR(kernel='rbf')
+
+OSNOVNA IDEJA:
+- Proširenje SVM-a na regresiju
+- Traži funkciju koja je "najbliža" svim podacima
+- Definiše "epsilon cev" tolerancije
+
+EPSILON TUBE:
+- Greške < ε ne kažnjavaju se
+- Greške > ε kažnjavaju se linearno
+
+KERNELI:
+1. LINEAR: y = wᵀx + b
+   - Linearna granica
+   - Brz
+
+2. POLYNOMIAL: K(x,x') = (γ·xᵀx' + r)ᵈ
+   - Polinomijalna granica
+   - degree (d): Stepen polinoma
+
+3. RBF (Radial Basis Function): K(x,x') = exp(-γ||x-x'||²)
+   - NAJPOPULARNIJI
+   - Može modelovati kompleksne nelinearne odnose
+   - γ (gamma): Uticaj jedne tačke (manji γ → širi uticaj)
+
+4. SIGMOID: K(x,x') = tanh(γ·xᵀx' + r)
+   - Slično neural network-u
+
+RBF KERNEL - DETALJI:
+- Transformiše podatke u višu dimenziju
+- "Razdvaja" nelinearne obrasce
+- Osetljiv na γ parametar
+
+PARAMETRI:
+- C: Regularizacija (manji C → jednostavniji model)
+- epsilon (ε): Širina tuba tolerancije
+- gamma (γ): Uticaj pojedinačne tačke (samo RBF/poly/sigmoid)
+
+U PROJEKTU:
+- Najbolji kernel: RBF
+- R² = 0.9959 (99.59%)
+- MAE = 0.0495
+- Drastično bolji od linearne regresije!
+
+ZAŠTO JE SVR POBEDIO?
+- Hvata NELINEARNE odnose u podacima
+- Temperatura zavisi nelinearno od polutanata
+
+
+================================================================================
+FAZA 6 - NAPREDNO MAŠINSKO UČENJE
+================================================================================
+
+1. K-MEANS CLUSTERING (Klasterovanje)
+------------------------------------------
+Funkcija: KMeans(n_clusters=k, n_init=10, max_iter=300)
+
+ALGORITAM:
+1. Nasumično postavi K centroida
+2. Dodeli svaku tačku najbližem centroidu
+3. Pomeri centroid u sredinu svih dodeljenih tačaka
+4. Ponovi 2-3 dok se centroidi ne stabilizuju
+
+KRITERIJUM:
+Minimizuj inerciju: Σ ||xᵢ - centroid||²
+
+PARAMETRI:
+- n_clusters: Broj klastera (K)
+- n_init: Broj različitih inicijalizacija (izbere najbolju)
+- max_iter: Maksimalan broj iteracija
+- random_state: Seed za reproduktivnost
+
+PROBLEM: KAKO ODREDITI K?
+
+ELBOW METODA:
+1. Testiraj K = 2, 3, 4, ..., 10
+2. Za svaki K izračunaj inerciju
+3. Nacrtaj grafikon: K vs inercija
+4. Traži "lakat" (elbow) → Mesto gde se kriva "lomi"
+
+INERTIA (Inercija):
+- Suma kvadratnih rastojanja do centroida
+- Manja = bolje grupisanje
+- Uvek opada sa rastom K
+
+SILHOUETTE SCORE (Alternativa):
+- Meri koliko su klasteri dobro razdvojeni
+- Opseg: -1 do 1
+- Veća vrednost = bolji klasteri
+
+U PROJEKTU:
+- Testirano: K = 2 do 10
+- Izabrano: K = 4 (lakat u grafikonu)
+- Klasteri interpretirani kao temperatura:
+  * Klaster 0: Hladno
+  * Klaster 1: Najtoplije
+  * Klaster 2: Najhladnije
+  * Klaster 3: Umereno toplo
+
+
+PCA (Principal Component Analysis)
+------------------------------------------
+Funkcija: PCA(n_components=2)
+
+SVRHA:
+- Smanjenje dimenzionalnosti
+- Vizualizacija visokodimenzionalnih podataka u 2D/3D
+
+ALGORITAM:
+1. Centriraj podatke (mean = 0)
+2. Izračunaj kovarijansu
+3. Nađi svojstvene vektore i vrednosti
+4. Sortiraj po svojstvenim vrednostima
+5. Projekuj podatke na prvih n komponenti
+
+GLAVNE KOMPONENTE (PC):
+- PC1: Pravac najveće varijanse
+- PC2: Pravac druge najveće varijanse (ortogonalan na PC1)
+- PC3, PC4, ...
+
+EXPLAINED VARIANCE:
+- Procenat varijanse objašnjen svakom komponentom
+- Primer: PC1=60%, PC2=25%, PC3=10%
+- Ukupno: 95% sa prve 3 komponente
+
+U PROJEKTU:
+- n_components=2 → Redukuj na 2D
+- Korišćeno za vizualizaciju K-Means klastera
+
+
+2. DECISION TREE REGRESSOR
+------------------------------------------
+Funkcija: DecisionTreeRegressor(max_depth, min_samples_split, ...)
+
+STRUKTURA:
+       [Root Node]
+       /         \
+   [Condition]  [Condition]
+    /     \       /      \
+  [Leaf] [Node] [Leaf]  [Leaf]
+          /  \
+      [Leaf][Leaf]
+
+KOMPONENTE:
+- ROOT NODE: Početni čvor
+- INTERNAL NODE: Čvor sa testom (Decision)
+- LEAF NODE: Krajnji čvor sa predikcijom
+- BRANCH: Veza između čvorova
+
+ALGORITAM (Rekurzivno binarno deljenje):
+1. Počni sa svim podacima u root-u
+2. Nađi najbolju podelu (feature + threshold)
+3. Podeli podatke na levo/desno
+4. Ponovi rekurzivno za svaki čvor
+5. Zaustavi se kada je ispunjen kriterijum zaustavljanja
+
+NAJBOLJA PODELA:
+Kriterijum: MSE (Mean Squared Error)
+
+MSE = (1/n) × Σ(yᵢ - ȳ)²
+
+Algoritam traži:
+min [MSE_left + MSE_right]
+
+Za svaki feature i svaki threshold
+
+PREDIKCIJA U LISTU:
+- Regresija: Mean vrednost svih tačaka u listu
+- Klasifikacija: Većinska klasa (mode)
+
+PARAMETRI:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Parametar           │ Opis
+━━━━━━━━━━━━━━━━━━━━┿━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+max_depth           │ Maksimalna dubina stabla
+                    │ None = neograničeno (OPASNO!)
+────────────────────┼────────────────────────────────
+min_samples_split   │ Min. broj uzoraka za podelu
+                    │ Manji = kompleksnije stablo
+────────────────────┼────────────────────────────────
+min_samples_leaf    │ Min. broj uzoraka u listu
+                    │ Veći = jednostavnije stablo
+────────────────────┼────────────────────────────────
+criterion           │ 'squared_error' (MSE)
+                    │ 'absolute_error' (MAE)
+────────────────────┼────────────────────────────────
+max_features        │ Broj feature-a za razmatranje
+                    │ None, 'sqrt', 'log2', int
+━━━━━━━━━━━━━━━━━━━━┷━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+OVERFITTING:
+- Stablo bez ograničenja → SAVRŠENO memoriše train
+- Test performanse LOŠE
+- Stablo ima dubinu = broj uzoraka
+
+SPREČAVANJE OVERFITTING-A:
+✓ max_depth → Ograniči dubinu
+✓ min_samples_split → Povećaj prag za podelu
+✓ min_samples_leaf → Zahtevaj više uzoraka u listu
+✓ Pruning → Odseci grane nakon treniranja
+
+
+GRID SEARCH CV
+------------------------------------------
+Funkcija: GridSearchCV(estimator, param_grid, cv, scoring)
+
+SVRHA:
+- Automatsko traženje najboljih hiperparametara
+- Exhaustive search kroz sve kombinacije
+
+ALGORITAM:
+1. Definiši param_grid: { 'param1': [...], 'param2': [...] }
+2. Generiši sve kombinacije parametara
+3. Za svaku kombinaciju:
+   a) Uradi K-fold cross-validation
+   b) Izračunaj prosečan score
+4. Vrati najbolje parametre
+
+CROSS-VALIDATION (CV):
+cv=5 znači:
+1. Podeli podatke na 5 fold-ova
+2. Treniraj na 4 fold-a, validiraj na 1
+3. Rotiraj 5 puta
+4. Prosečan rezultat
+
+   Fold 1: [Test][Train][Train][Train][Train]
+   Fold 2: [Train][Test][Train][Train][Train]
+   Fold 3: [Train][Train][Test][Train][Train]
+   Fold 4: [Train][Train][Train][Test][Train]
+   Fold 5: [Train][Train][Train][Train][Test]
+
+SCORING:
+- 'r2': R² score
+- 'neg_mean_squared_error': Negativni MSE
+- 'neg_mean_absolute_error': Negativni MAE
+
+PARAMETRI:
+- n_jobs=-1: Koristi sve CPU jezgre (paralelno)
+- verbose=1: Prikazuj napredak
+
+U PROJEKTU - DTR:
+param_grid = {
+    'max_depth': [3, 5, 7, 10, 15, 20, None],
+    'min_samples_split': [2, 5, 10, 20],
+    'min_samples_leaf': [1, 2, 4, 8],
+    'criterion': ['squared_error', 'absolute_error']
+}
+
+Ukupno kombinacija: 7 × 4 × 4 × 2 = 224
+Sa cv=5: 224 × 5 = 1120 treniranja!
+
+NAJBOLJI REZULTAT:
+- max_depth=15
+- R² = 0.998 (bolji od običnog DTR)
+
+
+FEATURE IMPORTANCE
+------------------------------------------
+Atribut: model.feature_importances_
+
+KAKO SE RAČUNA?
+Importance = Σ (smanjenje greške po podeli korišćenjem feature-a)
+
+Normalizovano: Σ importance = 1.0
+
+INTERPRETACIJA:
+importance = 0.35 → Feature objašnjava 35% smanjenja greške
+
+PRIMER:
+Feature          | Importance
+─────────────────┼───────────
+RH (vlažnost)    | 0.45
+AH (aps. vl.)    | 0.30
+PT08.S5(O3)      | 0.15
+CO(GT)           | 0.10
+
+Zaključak: RH i AH najvažniji za predikciju T
+
+
+3. NEURAL NETWORK (MLP Regressor)
+------------------------------------------
+Funkcija: MLPRegressor(hidden_layer_sizes, activation, solver, ...)
+
+ARHITEKTURA:
+
+Input Layer → Hidden Layer(s) → Output Layer
+
+[x₁]              [h₁₁]
+[x₂]  →  ...  →  [h₁₂]  →  ...  →  [ŷ]
+[x₃]              [h₁ₙ]
+
+SLOJEVI:
+1. INPUT LAYER (Ulazni)
+   - Prima feature-e
+   - Broj neurona = broj feature-a
+
+2. HIDDEN LAYER(S) (Skriveni)
+   - Procesiraju podatke
+   - Uče kompleksne obrasce
+   - hidden_layer_sizes=(20,) → 1 sloj, 20 neurona
+   - hidden_layer_sizes=(100,50) → 2 sloja, 100 i 50 neurona
+
+3. OUTPUT LAYER (Izlazni)
+   - Predikcija
+   - Regresija: 1 neuron (kontinualna vrednost)
+   - Klasifikacija: n neurona (n klasa)
+
+NEURON:
+z = w₁x₁ + w₂x₂ + ... + wₙxₙ + b
+a = activation(z)
+
+Gde:
+- w: Težine (weights)
+- b: Bias
+- z: Linearna kombinacija
+- a: Aktivacija
+
+
+AKTIVACIONE FUNKCIJE:
+------------------------------------------
+1. RELU (Rectified Linear Unit)
+   f(x) = max(0, x)
+
+   Grafik:    |    /
+              |   /
+              |  /
+           ───┼──────
+              |
+
+   KARAKTERISTIKE:
+   ✓ Brza (jednostavna)
+   ✓ Rešava "vanishing gradient"
+   ✓ Sparse aktivacije (50% neurona = 0)
+   ✗ "Dying ReLU" problem (neuroni mogu "umreti")
+
+   NAJČEŠĆE KORIŠĆENA!
+
+2. TANH (Hyperbolički tangens)
+   f(x) = (eˣ - e⁻ˣ) / (eˣ + e⁻ˣ)
+
+   Opseg: -1 do 1
+   Oblici: S-kriva (sigmoid-like)
+
+   KARAKTERISTIKE:
+   ✓ Zero-centered
+   ✓ Snažniji gradijenti od sigmoida
+   ✗ Vanishing gradient problem
+
+3. SIGMOID (Logistička funkcija)
+   f(x) = 1 / (1 + e⁻ˣ)
+
+   Opseg: 0 do 1
+
+   KARAKTERISTIKE:
+   ✓ Output kao verovatnoća
+   ✗ Vanishing gradient (veliki |x|)
+   ✗ Ne zero-centered
+
+   Retko se koristi u hidden layers!
+
+4. LINEAR
+   f(x) = x
+
+   Koristi se samo u OUTPUT layer-u za regresiju
+
+
+BACKPROPAGATION ALGORITAM
+------------------------------------------
+FAZE:
+
+1. FORWARD PASS (Prolaz unapred)
+   ───────────────────────────────
+   Input → Hidden → Output → Predikcija
+
+   Za svaki sloj l:
+   z⁽ˡ⁾ = W⁽ˡ⁾·a⁽ˡ⁻¹⁾ + b⁽ˡ⁾
+   a⁽ˡ⁾ = σ(z⁽ˡ⁾)
+
+2. LOSS FUNKCIJA
+   ───────────────────────────────
+   MSE = (1/n) × Σ(y_true - y_pred)²
+
+   Meri grešku između predikcije i stvarnosti
+
+3. BACKWARD PASS (Prolaz unazad)
+   ───────────────────────────────
+   Output → Hidden → Input
+
+   Izračunaj gradijent loss-a po svakoj težini:
+   ∂Loss/∂w, ∂Loss/∂b
+
+   Chain rule:
+   ∂Loss/∂w⁽ˡ⁾ = ∂Loss/∂a⁽ˡ⁾ × ∂a⁽ˡ⁾/∂z⁽ˡ⁾ × ∂z⁽ˡ⁾/∂w⁽ˡ⁾
+
+4. AŽURIRANJE TEŽINA
+   ───────────────────────────────
+   w_new = w_old - η × ∂Loss/∂w
+
+   η (eta) = learning rate (stopa učenja)
+
+VIZUALIZACIJA (1 neuron):
+
+FORWARD:
+x₁ ──w₁──┐
+x₂ ──w₂──┤ Σ → σ(z) → a → Loss
+  ...    │
+xₙ ──wₙ──┤
+    b ───┘
+
+BACKWARD:
+         ┌─∂L/∂w₁
+         ├─∂L/∂w₂
+∂L/∂a ←──┤  ...
+         ├─∂L/∂wₙ
+         └─∂L/∂b
+
+
+OPTIMIZATORI (Solvers)
+------------------------------------------
+1. SGD (Stochastic Gradient Descent)
+   w = w - η × ∂Loss/∂w
+
+   KARAKTERISTIKE:
+   - Jednostavan
+   - Može "zaglavi" u lokalnom optimumu
+   - Zahteva pažljivo podešavanje η
+
+2. ADAM (Adaptive Moment Estimation)
+   Kombinuje:
+   - Momentum (ubrzava u pravom smeru)
+   - RMSprop (adaptivni learning rate)
+
+   FORMULE:
+   m = β₁×m + (1-β₁)×∂L/∂w     (prvi moment)
+   v = β₂×v + (1-β₂)×(∂L/∂w)²  (drugi moment)
+   w = w - η × m/√(v + ε)
+
+   KARAKTERISTIKE:
+   ✓ Adaptivni learning rate za svaki parametar
+   ✓ Brža konvergencija
+   ✓ Manje osetljiv na inicijalizaciju
+
+   NAJČEŠĆE KORIŠĆEN!
+
+3. LBFGS (Limited-memory BFGS)
+   - Kvazi-Newton metod
+   - Koristi aproksimaciju Hessian matrice
+   - Odličan za male dataset-e
+   - Spor za velike dataset-e
+
+
+PARAMETRI MLPRegressor
+------------------------------------------
+hidden_layer_sizes=(20,)
+   - 1 skriveni sloj sa 20 neurona
+
+activation='relu'
+   - ReLU aktivaciona funkcija
+
+solver='adam'
+   - Adam optimizer
+
+alpha=0.0001
+   - L2 regularizacija (sprečava overfitting)
+   - Loss = MSE + α × Σw²
+
+learning_rate_init=0.001
+   - Početna stopa učenja (η)
+
+max_iter=1000
+   - Maksimalan broj epoha (prolaza kroz podatke)
+
+early_stopping=True
+   - Zaustavlja ako validation greška ne pada
+
+validation_fraction=0.1
+   - 10% train podataka koristi za validaciju
+
+n_iter_no_change=20
+   - Zaustavlja ako nema poboljšanja 20 epoha
+
+batch_size='auto'
+   - Broj uzoraka po ažuriranju težina
+   - 'auto' = min(200, n_samples)
+
+
+EPOCHS vs ITERATIONS vs BATCHES
+------------------------------------------
+BATCH:
+- Podskup podataka koji se koristi za 1 ažuriranje
+
+ITERATION:
+- 1 ažuriranje težina = 1 batch procesiran
+
+EPOCH:
+- 1 prolaz kroz SVE podatke
+
+PRIMER:
+Dataset: 1000 uzoraka
+Batch size: 100
+
+1 Epoch = 1000/100 = 10 iterations
+
+
+OVERFITTING U NEURAL NETWORKS
+------------------------------------------
+ZNACI:
+- Train accuracy >> Test accuracy
+- Loss nastavlja da pada na train, ali raste na validation
+
+REŠENJA:
+1. Early Stopping
+   - Zaustavi kada validation loss počne da raste
+
+2. Regularizacija (L2)
+   - alpha parametar
+   - Kazna za velike težine
+
+3. Dropout
+   - Nasumično "gasi" neurone tokom treniranja
+   - Sprečava ko-adaptaciju neurona
+
+4. Batch Normalization
+   - Normalizuje ulaze svakog sloja
+   - Ubrzava treniranje
+
+5. Manje kompleksna arhitektura
+   - Manji broj slojeva
+   - Manji broj neurona
+
+6. Više podataka
+   - Najbolje rešenje!
+
+
+U PROJEKTU:
+------------------------------------------
+OBIČAN NN (20 neurona):
+- hidden_layer_sizes=(20,)
+- R² = 0.9972
+
+OPTIMIZOVAN NN (GridSearchCV):
+- Najbolja arhitektura: (100, 50)
+- R² = 0.9999 (99.99%!)
+- 2 sloja: 100 neurona, pa 50 neurona
+- activation='relu'
+- alpha=0.0001
+
+ZAKLJUČAK:
+- NN sa 2 sloja drastično bolji
+- Više neurona → više kapaciteta
+- Hvata kompleksnije obrasce
+
+
+POREĐENJE MODELA (Faza 6)
+------------------------------------------
+┌────────────────────────┬────────┬────────┬────────┬────────┐
+│ Model                  │   R²   │  MAE   │  MSE   │  RMSE  │
+├────────────────────────┼────────┼────────┼────────┼────────┤
+│ DTR (simple)           │ 0.9969 │ 0.0414 │ 0.0032 │ 0.0562 │
+│ DTR (optimized)        │ 0.9984 │ 0.0295 │ 0.0016 │ 0.0404 │
+│ NN (20 neurons)        │ 0.9972 │ 0.0399 │ 0.0028 │ 0.0533 │
+│ NN (optimized)         │ 0.9999 │ 0.0046 │ 0.0000 │ 0.0068 │
+└────────────────────────┴────────┴────────┴────────┴────────┘
+
+POBEDNIK: Neural Network (optimized)
+
+
+================================================================================
+FAZA 7 - VREMENSKE SERIJE (Time Series)
+================================================================================
+
+1. ŠTA SU VREMENSKE SERIJE?
+------------------------------------------
+DEFINICIJA:
+- Niz podataka merenih u različitim vremenskim intervalima
+- Redosled je BITAN (za razliku od obične regresije)
+
+PRIMERI:
+- Cena akcija kroz vreme
+- Temperatura po satima
+- Broj prodaja po mesecima
+
+KARAKTERISTIKE:
+- Vremenska zavisnost (autocorrelation)
+- Trend
+- Sezonalnost
+- Cikličnost
+- Šum
+
+
+2. KOMPONENTE VREMENSKE SERIJE
+------------------------------------------
+Dekompozicija: seasonal_decompose(data, model='additive')
+
+MODELI:
+- ADDITIVE: Y = Trend + Seasonal + Residual
+  (Sezonalnost konstantne amplitude)
+
+- MULTIPLICATIVE: Y = Trend × Seasonal × Residual
+  (Sezonalnost raste sa trendom)
+
+A) TREND
+────────
+- Dugoročna promena (rast ili pad)
+- Pokazuje opšti smer
+- U projektu: Zima (nisko) → Leto (visoko) → Zima
+
+B) SEASONAL (Sezonalnost)
+──────────────────────────
+- Ponavljajući obrazac u fiksnim intervalima
+- Period: Sat, dan, nedelja, mesec, godina
+- U projektu:
+  * Dnevni ciklusi (dan-noć)
+  * Godišnji ciklusi (leto-zima)
+
+C) RESIDUAL (Ostatak)
+──────────────────────
+- Nasumične oscilacije (šum)
+- Ono što Trend + Seasonal ne objašnjavaju
+- Uzroci:
+  * Greške merenja
+  * Nepredvidivi događaji (kiša, vetar, oluje)
+  * Anomalije
+
+
+3. RESAMPLING (Ponovno uzorkovanje)
+------------------------------------------
+timeseries.resample('D').mean()
+
+FREKVENCIJE:
+- 'h' ili 'H': Sat (hour)
+- 'D': Dan (day)
+- 'W': Nedelja (week)
+- 'M': Mesec (month)
+- 'Y': Godina (year)
+
+AGREGACIJE:
+- .mean(): Prosek
+- .sum(): Suma
+- .max(), .min(): Maksimum, minimum
+- .count(): Broj vrednosti
+
+FORWARD FILL (.ffill()):
+- Popunjava nedostajuće vrednosti prethodnom vrednošću
+- Koristi se kada imamo "praznine" u podacima
+
+
+4. STACIONARNOST
+------------------------------------------
+DEFINICIJA:
+Vremenska serija je stacionarna ako:
+1. Konstantan mean kroz vreme
+2. Konstantna varijansa kroz vreme
+3. Autokorelacija zavisi samo od vremenskog odstojanja
+
+ZAŠTO JE VAŽNA?
+- Mnogi modeli (ARIMA) zahtevaju stacionarnost
+- Nestacionarne serije teško predvideti
+
+NESTACIONARNE SERIJE:
+- Imaju trend
+- Imaju promenljivu varijansu
+- Sezonalnost
+
+POSTIZANJE STACIONARNOSTI:
+1. Differencing (Diferenciranje)
+   y'(t) = y(t) - y(t-1)
+
+2. Log transformacija
+   y' = log(y)
+
+3. Detrending
+   Oduzmi trend od serije
+
+4. Seasonal differencing
+   y'(t) = y(t) - y(t-s)
+   Gde s = period sezonalnosti
+
+
+ADF TEST (Augmented Dickey-Fuller)
+------------------------------------------
+Funkcija: adfuller(data, autolag='AIC')
+
+HIPOTEZE:
+H0: Serija je nestacionarna (ima "unit root")
+H1: Serija je stacionarna
+
+TEST STATISTIKA:
+- ADF statistic: Što negativniji → jači dokaz stacionarnosti
+- p-value: Verovatnoća H0
+
+INTERPRETACIJA:
+p-value ≤ 0.05 → Odbacujemo H0 → Serija JE stacionarna
+p-value > 0.05 → Ne odbacujemo H0 → Serija NIJE stacionarna
+
+autolag='AIC':
+- Automatski bira broj lagova na osnovu Akaike kriterijuma
+
+
+5. ACF i PACF (Korelogrami)
+------------------------------------------
+
+A) ACF (Autocorrelation Function)
+──────────────────────────────────
+Funkcija: plot_acf(data, lags=40)
+
+ŠTA MERI:
+- Korelaciju serije sa njenim lagged verzijama
+- ACF(k) = Corr(y(t), y(t-k))
+
+PRIMER:
+Lag 1: Korelacija između y(t) i y(t-1)
+Lag 24: Korelacija između y(t) i y(t-24)
+
+INTERPRETACIJA:
+- Visok ACF na lag k → Snažna korelacija na tom lagu
+- "Seče" posle lag q → MA(q) model
+
+PRIMERI:
+- Dnevni podaci: Visok ACF na lag 24 → Dnevna sezonalnost
+- Nedeljni podaci: Visok ACF na lag 7 → Nedeljni pattern
+
+
+B) PACF (Partial Autocorrelation Function)
+───────────────────────────────────────────
+Funkcija: plot_pacf(data, lags=40)
+
+ŠTA MERI:
+- Korelaciju nakon uklanjanja uticaja međukoraka
+- PACF(k) = Korelacija y(t) i y(t-k) eliminišući y(t-1), ..., y(t-k+1)
+
+INTERPRETACIJA:
+- "Seče" posle lag p → AR(p) model
+
+RAZLIKA ACF vs PACF:
+ACF: DIREKTNA korelacija (uključuje sve međukorake)
+PACF: DIREKTNA korelacija (isključuje međukorake)
+
+
+6. ARIMA MODELI
+------------------------------------------
+ARIMA(p, d, q)
+
+KOMPONENTE:
+
+A) AR (AutoRegressive) - p
+───────────────────────────
+y(t) = c + φ₁y(t-1) + φ₂y(t-2) + ... + φₚy(t-p) + ε(t)
+
+- Koristi prethodne vrednosti za predikciju
+- p = broj prethodnih vrednosti (lags)
+
+PRIMER AR(2):
+y(t) = 0.5y(t-1) + 0.3y(t-2) + ε(t)
+
+B) I (Integrated) - d
+──────────────────────
+- Broj diferenciranja potreban za stacionarnost
+- d=0: Nema diferenciranja
+- d=1: y'(t) = y(t) - y(t-1)
+- d=2: Diferencirati dva puta
+
+C) MA (Moving Average) - q
+───────────────────────────
+y(t) = c + ε(t) + θ₁ε(t-1) + θ₂ε(t-2) + ... + θ_qε(t-q)
+
+- Koristi prethodne greške za predikciju
+- q = broj prethodnih grešaka
+- ε(t) = white noise (slučajna greška)
+
+PRIMER MA(2):
+y(t) = ε(t) + 0.6ε(t-1) + 0.4ε(t-2)
+
+
+SARIMA (Seasonal ARIMA)
+------------------------------------------
+SARIMA(p,d,q)(P,D,Q,m)
+
+DODATNE KOMPONENTE:
+- P: Seasonal AR order
+- D: Seasonal differencing
+- Q: Seasonal MA order
+- m: Broj perioda u sezoni (npr. 24 za sat, 7 za dan)
+
+FORMULA:
+ARIMA(p,d,q) × Seasonal(P,D,Q,m)
+
+PRIMER:
+SARIMA(1,1,1)(1,1,1,24)
+- AR(1), diff=1, MA(1)
+- Seasonal AR(1), seasonal diff=1, Seasonal MA(1), period=24
+
+
+AUTO ARIMA
+------------------------------------------
+Funkcija: auto_arima(data, seasonal=True, m=24, ...)
+
+ALGORITAM:
+1. Testira mnoštvo kombinacija (p,d,q)(P,D,Q,m)
+2. Za svaku kombinaciju fituje model
+3. Rangira po AIC/BIC kriterijumu
+4. Vraća najbolji model
+
+AIC (Akaike Information Criterion):
+AIC = 2k - 2ln(L)
+
+Gde:
+- k = broj parametara
+- L = maximum likelihood
+
+MANJI AIC = BOLJI MODEL
+
+PARAMETRI:
+- max_p, max_q, max_P, max_Q: Ograničenja za pretraživanje
+- stepwise=True: Brže (ne testira sve kombinacije)
+- trace=True: Prikazuje napredak
+
+U PROJEKTU:
+- auto_arima našao: ARIMA(1,0,2)(1,1,1,7)
+- Sezonalni period m=7 (nedeljno)
+
+
+PROBLEMI SA SARIMAX U PROJEKTU:
+------------------------------------------
+- MAE = prevelika greška
+- RMSE = prevelika greška
+- Predikcije nisu precizne
+
+RAZLOZI:
+1. Mali dataset (samo 1 godina)
+2. Visoka varijabilnost (mnogo šuma)
+3. Kompleksni nelinearni odnosi
+4. Sarimax pretpostavlja linearnost
+
+
+7. LSTM (Long Short-Term Memory)
+------------------------------------------
+TIP:
+- Rekurentna neuronska mreža (RNN)
+- Dizajnirana za SEKVENCIJALNE podatke
+- Odlična za vremenske serije
+
+PROBLEM SA OBIČNIM RNN:
+- Vanishing gradient problem
+- Ne može "pamtiti" daleke prošle događaje
+- Gubi informacije posle ~10 koraka
+
+LSTM REŠENJE:
+- "Memory cell" - dugoročna memorija
+- "Gates" - kontrola protoka informacija
+
+
+ARHITEKTURA LSTM ĆELIJE:
+------------------------------------------
+           ┌─────────────────┐
+    C(t-1)─┤  Cell State     ├─→C(t)
+           └────┬───┬───┬────┘
+                │   │   │
+           ┌────┴┐ ┌┴───┴────┐
+    h(t-1)─┤Gates│ │ tanh    ├─→h(t)
+    x(t)───┤     │ │         │
+           └─────┘ └─────────┘
+
+GATES (Kapije):
+
+1. FORGET GATE
+   f(t) = σ(W_f · [h(t-1), x(t)] + b_f)
+
+   ODLUČUJE: Šta zaboraviti iz Cell State
+   Output: 0 (zaboravi) do 1 (zadrži)
+
+2. INPUT GATE
+   i(t) = σ(W_i · [h(t-1), x(t)] + b_i)
+   C̃(t) = tanh(W_C · [h(t-1), x(t)] + b_C)
+
+   ODLUČUJE: Koje nove informacije dodati
+
+3. OUTPUT GATE
+   o(t) = σ(W_o · [h(t-1), x(t)] + b_o)
+
+   ODLUČUJE: Šta iz Cell State će biti output
+
+CELL STATE UPDATE:
+C(t) = f(t) * C(t-1) + i(t) * C̃(t)
+
+HIDDEN STATE:
+h(t) = o(t) * tanh(C(t))
+
+PREDNOSTI:
+✓ Pamti dugotrajne zavisnosti (100+ koraka)
+✓ Bira šta je važno (gates)
+✓ Rešava vanishing gradient
+✓ Odličan za vremenske serije
+
+
+PRIPREMA PODATAKA ZA LSTM
+------------------------------------------
+PROBLEM:
+- NN radi sa vrednostima [0, 1]
+- Naši podaci: [-5, 45]°C
+
+REŠENJE: MinMaxScaler
+scaler = MinMaxScaler(feature_range=(0, 1))
+scaled_data = scaler.fit_transform(data)
+
+SEKVENCE:
+- LSTM očekuje sekvence kao input
+- Primer: Prvih 168 sati (7 dana) → Predvidi 169. sat
+
+def create_sequences(data, seq_length=168, forecast_horizon=1):
+    X, y = [], []
+    for i in range(len(data) - seq_length - forecast_horizon + 1):
+        X.append(data[i:i+seq_length])       # Input
+        y.append(data[i+seq_length])         # Target
+    return np.array(X), np.array(y)
+
+SHAPE:
+X.shape = (n_samples, seq_length, n_features)
+        = (6743, 168, 1)
+
+y.shape = (n_samples, forecast_horizon)
+        = (6743, 1)
+
+SPLIT:
+- 70% Train
+- 15% Validation (za early stopping)
+- 15% Test
+
+
+LSTM MODEL U PROJEKTU
+------------------------------------------
+model = Sequential([
+    Input(shape=(168, 1)),          # 168 sati, 1 feature
+    LSTM(64),                       # 64 memory units
+    Dropout(0.2),                   # Dropout 20%
+    Dense(32, activation='relu'),   # 32 neurona
+    Dense(1)                        # Output (1 predikcija)
+])
+
+SLOJEVI:
+
+1. INPUT LAYER
+   - shape=(168, 1)
+   - 168 vremenskih koraka
+   - 1 feature (temperatura)
+
+2. LSTM LAYER
+   - 64 LSTM ćelija (memory units)
+   - Vraća samo poslednji output (return_sequences=False)
+   - 64 × 4 × (168+64+1) = 59,648 parametara!
+     (4 gate-a, svaki sa W i b)
+
+3. DROPOUT LAYER
+   - Dropout rate = 0.2 (20%)
+   - Nasumično "gasi" 20% neurona
+   - Sprečava overfitting
+   - Samo tokom treniranja (ne u predict)
+
+4. DENSE LAYER
+   - 32 neurona
+   - ReLU aktivacija
+   - Dodatna reprezentacija
+
+5. OUTPUT LAYER
+   - 1 neuron
+   - Linearna aktivacija (regresija)
+   - Output: Predikcija temperature
+
+
+KOMPILACIJA:
+model.compile(
+    optimizer=Adam(learning_rate=0.001),
+    loss='mse',
+    metrics=['mae']
+)
+
+OPTIMIZER: Adam
+- Adaptive learning rate
+- Brza konvergencija
+
+LOSS: MSE
+- Mean Squared Error
+- Kažnjava veće greške
+
+METRICS: MAE
+- Dodatna metrika za praćenje
+
+
+CALLBACKS (Povratni pozivi)
+------------------------------------------
+1. EARLY STOPPING
+   early_stop = EarlyStopping(
+       monitor='val_loss',
+       patience=15,
+       restore_best_weights=True
+   )
+
+   ŠTA RADI:
+   - Prati validation loss
+   - Ako nema poboljšanja 15 epoha → STOP
+   - Vraća težine iz najbolje epohe
+
+2. REDUCE LR ON PLATEAU
+   reduce_lr = ReduceLROnPlateau(
+       monitor='val_loss',
+       factor=0.5,
+       patience=7,
+       min_lr=1e-7
+   )
+
+   ŠTA RADI:
+   - Ako validation loss stagnira 7 epoha
+   - Smanji learning rate na pola (×0.5)
+   - Minimum: 10⁻⁷
+
+
+TRENIRANJE:
+history = model.fit(
+    X_train, y_train,
+    epochs=100,
+    batch_size=64,
+    validation_data=(X_val, y_val),
+    callbacks=[early_stop, reduce_lr]
+)
+
+BATCH SIZE = 64:
+- 64 uzorka po iteraciji
+- Brže od batch_size=1
+- Stabilnije od batch_size=len(X_train)
+
+EPOCHS = 100:
+- Maksimalno 100 prolaza
+- Early stopping može zaustaviti ranije
+
+
+PREDIKCIJA I INVERSE TRANSFORM:
+------------------------------------------
+y_pred_scaled = model.predict(X_test)
+y_pred = scaler.inverse_transform(y_pred_scaled)
+
+ZAŠTO INVERSE?
+- Model predviđa skalirane vrednosti [0, 1]
+- Moramo vratiti u originalne jedinice [°C]
+
+
+REZULTATI U PROJEKTU:
+------------------------------------------
+R² = 0.919 (91.9%)
+MAE = 1.85°C
+RMSE = 2.31°C
+
+INTERPRETACIJA:
+- Model objašnjava 91.9% varijanse
+- U proseku greši 1.85°C
+- Tipična greška ~2.3°C
+
+BOLJE OD SARIMAX:
+- SARIMAX: MAE ~8°C
+- LSTM: MAE ~1.85°C
+
+
+POREĐENJE: SARIMAX vs LSTM
+------------------------------------------
+┌─────────────┬─────────────┬─────────────┐
+│             │   SARIMAX   │    LSTM     │
+├─────────────┼─────────────┼─────────────┤
+│ Tip         │ Statistički │ Deep Learn  │
+│ Pretpostavka│ Linearnost  │ Nelinearan  │
+│ Sezonalnost │ 1 period    │ Kompleksna  │
+│ Parametri   │ Malo        │ Mnogo       │
+│ Treniranje  │ Brzo        │ Sporo       │
+│ Podaci      │ Mali OK     │ Treba mnogo │
+│ MAE         │ ~8°C        │ ~1.85°C     │
+└─────────────┴─────────────┴─────────────┘
+
+
+================================================================================
+DODATNI KONCEPTI
+================================================================================
+
+1. VARIANCE (Varijansa)
+------------------------------------------
+DEFINICIJA:
+Mera rasipanja podataka oko srednje vrednosti
+
+FORMULA:
+σ² = Σ(xᵢ - μ)² / n
+
+INTERPRETACIJA:
+- Veća varijansa = podaci rašireni
+- Manja varijansa = podaci grupisani
+
+R² KONTEKST:
+R² = 1 - (unexplained variance / total variance)
+
+"Model objašnjava X% varijanse" = Koliko dobro model hvata
+raznolikost u podacima
+
+
+2. BIAS-VARIANCE TRADEOFF
+------------------------------------------
+BIAS (Pristrasnost):
+- Greška zbog pogrešnih pretpostavki
+- Visok bias = underfitting (previše jednostavan model)
+
+VARIANCE (Varijansa modela):
+- Greška zbog osetljivosti na trening podatke
+- Visoka varijansa = overfitting (previše kompleksan)
+
+IDEALAN MODEL:
+- Nizak bias + Niska varijansa
+- Balans između jednostavnosti i kompleksnosti
+
+Total Error = Bias² + Variance + Irreducible Error
+
+
+3. OVERFITTING vs UNDERFITTING
+------------------------------------------
+UNDERFITTING:
+- Model previše jednostavan
+- Loš na train i test setovima
+- Visok bias
+- Rešenje: Kompleksniji model
+
+OVERFITTING:
+- Model previše kompleksan
+- Odličan na train, loš na test
+- Visoka varijansa
+- Rešenje: Regularizacija, više podataka, dropout
+
+GOOD FIT:
+- Dobar na oba seta
+- Generalizuje dobro
+
+
+4. CURSE OF DIMENSIONALITY
+------------------------------------------
+PROBLEM:
+- Sa rastom broja feature-a raste potreban broj podataka
+- Eksponencijalni rast
+
+PRIMER:
+1D: 10 tačaka pokriva prostor
+10D: Treba 10¹⁰ tačaka!
+
+REŠENJA:
+- Feature selection
+- Dimensionality reduction (PCA)
+- Regularizacija
+
+
+5. NO FREE LUNCH THEOREM
+------------------------------------------
+TEOREMA:
+"Nijedan algoritam nije najbolji za SVE probleme"
+
+PRAKTIČNO:
+- Uvek testiraj više algoritama
+- Najbolji model zavisi od podataka
+- GridSearchCV pomaže
+
+
+================================================================================
+KLJUČNI ZAKLJUČCI ZA ODBRANU
+================================================================================
+
+1. NAJBOLJI MODELI PO FAZAMA
+   ────────────────────────────
+   Faza 5: SVR (RBF kernel) - R² = 0.9959
+   Faza 6: Neural Network (optimizovan) - R² = 0.9999
+   Faza 7: LSTM - R² = 0.919 (vremenske serije)
+
+2. REGULARIZACIJA
+   ────────────────
+   L1 (Lasso): Sparse (eliminiše feature-e)
+   L2 (Ridge): Shrinkage (smanjuje sve)
+   U projektu: α male vrednosti → skoro linearna regresija
+
+3. GRID SEARCH CV
+   ────────────────
+   Automatsko traženje najboljih parametara
+   5-fold cross-validation za validaciju
+   Korišćeno za DTR i NN
+
+4. BACKPROPAGATION
+   ────────────────
+   Forward → Loss → Backward → Update
+   Ključni algoritam za treniranje NN
+
+5. SARIMAX vs LSTM
+   ────────────────
+   SARIMAX: Loš za ovaj dataset (mali, kompleksan)
+   LSTM: Mnogo bolji (hvata nelinearne obrasce)
+
+6. IMPUTATION
+   ────────────────
+   SimpleImputer: Za ~5% NaN (mean strategy)
+   KNNImputer: Za ~18% NaN (n_neighbors=8)
+
+7. OUTLIER REMOVAL
+   ────────────────
+   IQR metod: Q1-1.5×IQR do Q3+1.5×IQR
+
+8. SCALING
+   ────────────────
+   StandardScaler: Za normalno distribuirane podatke
+   Formula: z = (x-μ)/σ
+
+9. HIPOTEZE
+   ────────────────
+   Shapiro-Wilk: Test normalnosti
+   Mann-Whitney: Razlika distribucija (neparametarski)
+   Cohen's d: Veličina efekta
+   p < 0.05: Statističi značajno
+
+10. LSTM ARHITEKTURA
+    ────────────────
+    Input(168,1) → LSTM(64) → Dropout(0.2) → Dense(32) → Dense(1)
+    Callbacks: EarlyStopping, ReduceLROnPlateau
+    Rezultat: MAE = 1.85°C
+
+
+================================================================================
+KRAJ DOKUMENTA
+================================================================================
+Sačuvano: teorija_za_odbranu.txt
+Autor: Mihailo Božinović 76/25 RN
+Projekat: Air Quality Dataset Analysis
+Datum: 2025
+================================================================================
